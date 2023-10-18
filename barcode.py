@@ -2,6 +2,7 @@ from typing import List
 
 import cv2
 import skia
+import numpy as np
 
 
 def compute_barcode_colors(video_path: str,
@@ -32,6 +33,11 @@ def compute_barcode_colors(video_path: str,
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             presentation_timestamp = cap.get(cv2.CAP_PROP_POS_MSEC)
 
+            # Check if delta time has passed
+            if presentation_timestamp % delta == 0:
+                # Get the average color of each frame
+                colors.append(np.mean(frame, axis=(0, 1)).astype(int).tolist())
+
         cap.release()
         return colors
 
@@ -49,12 +55,17 @@ def write_barcode_image(colors: List, width: int = 500,
     surface = skia.Surface(width, height)
 
     with surface as canvas:
-        # TODO: modify to display bars like in the example
-        rect = skia.Rect(100, 0, 200, 100)
-        paint = skia.Paint(
-            Color=skia.ColorBLUE,
-            Style=skia.Paint.kFill_Style)
-        canvas.drawRect(rect, paint)
+
+        # Iterate over the colors and draw a bar for each color
+        x = 0                            # > Variable to keep track of the x position
+        width_bar = width / len(colors)  # > Width of each bar
+        for color in colors:
+            rect = skia.Rect(x, 0, x + width_bar, height)
+            paint = skia.Paint(
+                Color=skia.Color(color[0], color[1], color[2]),
+                Style=skia.Paint.kFill_Style)
+            canvas.drawRect(rect, paint)
+            x += width_bar
 
     image = surface.makeImageSnapshot()
     image.save(output_path, skia.kPNG)
@@ -69,4 +80,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
