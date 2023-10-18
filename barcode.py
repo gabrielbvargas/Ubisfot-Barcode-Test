@@ -14,6 +14,7 @@ def compute_barcode_colors(video_path: str,
     :return: list of colors
     """
     colors = []
+    frames = []  # > List to store the frames in delta time
     cap = cv2.VideoCapture(video_path)
 
     if not cap.isOpened():
@@ -35,8 +36,22 @@ def compute_barcode_colors(video_path: str,
 
             # Check if delta time has passed
             if presentation_timestamp % delta == 0:
-                # Get the average color of each frame
-                colors.append(np.mean(frame, axis=(0, 1)).astype(int).tolist())
+                # Get the average color of each frame period
+                if frames:
+                    # Get the average color of each frame in delta time
+                    frames_sum = np.sum(frames, axis=0)
+                    frames_avg = np.multiply(frames_sum, 1 / len(frames))
+
+                    # Get the final average color
+                    average_color = np.mean(frames_avg, axis=(0, 1)).astype(int)
+                    average_color = average_color.tolist()  # > Converting from numpy array to list
+
+                    # Append the average color to the list of colors
+                    colors.append(average_color)
+
+                frames = []
+
+            frames.append(frame)
 
         cap.release()
         return colors
@@ -56,15 +71,21 @@ def write_barcode_image(colors: List, width: int = 500,
 
     with surface as canvas:
 
-        # Iterate over the colors and draw a bar for each color
-        x = 0                            # > Variable to keep track of the x position
+        x = 0                            # > Variable to keep track of the X position
         width_bar = width / len(colors)  # > Width of each bar
+
+        # Iterate over the colors and draw a bar for each color
         for color in colors:
+            # Define the bar area
             rect = skia.Rect(x, 0, x + width_bar, height)
+
+            # Draw the bar using the colors of the actual frame
             paint = skia.Paint(
                 Color=skia.Color(color[0], color[1], color[2]),
                 Style=skia.Paint.kFill_Style)
             canvas.drawRect(rect, paint)
+
+            # Update the X position
             x += width_bar
 
     image = surface.makeImageSnapshot()
